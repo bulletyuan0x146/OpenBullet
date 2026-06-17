@@ -1,0 +1,1 @@
+"""OpenBB Workspace widget definitions."""
