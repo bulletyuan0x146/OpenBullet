@@ -1,33 +1,58 @@
 from __future__ import annotations
 
+import math
+import time
 from typing import Any
 
 import akshare as ak
+from akshare.stock.cons import zh_sina_a_stock_payload, zh_sina_a_stock_url
+from akshare.utils import demjson
 import pandas as pd
 import requests
+
+from openbullet.config import settings
 
 
 class AkShareProvider:
     """Adapter for AkShare market data."""
 
+    def __init__(self) -> None:
+        self._a_stock_spot_cache: tuple[float, list[dict[str, Any]]] | None = None
+
     def get_a_stock_spot(self, *, limit: int | None = None) -> list[dict[str, Any]]:
-        frame = self._get_a_stock_spot_frame(limit=limit)
-        normalized = self._normalize_a_stock_spot(frame)
-        if limit is not None and limit > 0:
-            normalized = normalized.head(limit)
-        return normalized.to_dict(orient="records")
+        try:
+            frame = self._get_a_stock_spot_frame(limit=limit)
+            normalized = self._normalize_a_stock_spot(frame)
+            if limit is not None and limit > 0:
+                normalized = normalized.head(limit)
+            rows = normalized.to_dict(orient="records")
+            self._a_stock_spot_cache = (time.monotonic(), rows)
+            return rows
+        except Exception:
+            cached_rows = self._get_cached_a_stock_spot()
+            if cached_rows is not None:
+                return cached_rows[:limit] if limit is not None and limit > 0 else cached_rows
+            raise
 
     def _get_a_stock_spot_frame(self, *, limit: int | None = None) -> pd.DataFrame:
         if limit is not None and 0 < limit <= 500:
-            return self._fetch_a_stock_spot_limited(limit=limit)
+            try:
+                return self._fetch_a_stock_spot_em_limited(limit=limit)
+            except requests.RequestException:
+                return self._fetch_a_stock_spot_sina_limited(limit=limit)
         return ak.stock_zh_a_spot_em()
 
     @staticmethod
-    def _fetch_a_stock_spot_limited(*, limit: int) -> pd.DataFrame:
+    def _fetch_a_stock_spot_em_limited(*, limit: int) -> pd.DataFrame:
         urls = [
             "https://push2.eastmoney.com/api/qt/clist/get",
+            "http://push2.eastmoney.com/api/qt/clist/get",
             "https://82.push2.eastmoney.com/api/qt/clist/get",
+            "http://82.push2.eastmoney.com/api/qt/clist/get",
             "https://61.push2.eastmoney.com/api/qt/clist/get",
+            "http://61.push2.eastmoney.com/api/qt/clist/get",
+            "https://40.push2.eastmoney.com/api/qt/clist/get",
+            "http://40.push2.eastmoney.com/api/qt/clist/get",
         ]
         params = {
             "pn": "1",
@@ -133,6 +158,99 @@ class AkShareProvider:
             if column in frame.columns:
                 frame[column] = pd.to_numeric(frame[column], errors="coerce")
         return frame
+
+    @staticmethod
+    def _fetch_a_stock_spot_sina_limited(*, limit: int) -> pd.DataFrame:
+        page_size = int(zh_sina_a_stock_payload.get("num", 80))
+        page_count = max(1, math.ceil(limit / page_size))
+        payload = zh_sina_a_stock_payload.copy()
+        frames: list[pd.DataFrame] = []
+        headers = {
+            "Accept": "application/json,text/plain,*/*",
+            "Connection": "close",
+            "Referer": "https://vip.stock.finance.sina.com.cn/mkt/",
+            "User-Agent": (
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                "AppleWebKit/537.36"
+            ),
+        }
+        for page in range(1, page_count + 1):
+            payload.update({"page": str(page)})
+            response = requests.get(
+                zh_sina_a_stock_url,
+                params=payload,
+                headers=headers,
+                timeout=15,
+            )
+            response.raise_for_status()
+            rows = demjson.decode(response.text)
+            frames.append(pd.DataFrame(rows))
+
+        frame = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+        if frame.empty:
+            return pd.DataFrame()
+
+        frame = frame.head(limit)
+        numeric_columns = {
+            "trade": "float",
+            "pricechange": "float",
+            "changepercent": "float",
+            "buy": "float",
+            "sell": "float",
+            "settlement": "float",
+            "open": "float",
+            "high": "float",
+            "low": "float",
+            "volume": "float",
+            "amount": "float",
+            "per": "float",
+            "pb": "float",
+            "mktcap": "float",
+            "nmc": "float",
+            "turnoverratio": "float",
+        }
+        for column in numeric_columns:
+            if column in frame.columns:
+                frame[column] = pd.to_numeric(frame[column], errors="coerce")
+
+        frame = frame.rename(
+            columns={
+                "symbol": "代码",
+                "name": "名称",
+                "trade": "最新价",
+                "pricechange": "涨跌额",
+                "changepercent": "涨跌幅",
+                "buy": "买入",
+                "sell": "卖出",
+                "settlement": "昨收",
+                "open": "今开",
+                "high": "最高",
+                "low": "最低",
+                "volume": "成交量",
+                "amount": "成交额",
+                "ticktime": "时间戳",
+                "per": "市盈率-动态",
+                "pb": "市净率",
+                "mktcap": "总市值",
+                "nmc": "流通市值",
+                "turnoverratio": "换手率",
+            }
+        )
+        if "总市值" in frame.columns:
+            frame["总市值"] = frame["总市值"] * 10000
+        if "流通市值" in frame.columns:
+            frame["流通市值"] = frame["流通市值"] * 10000
+        return frame
+
+    def _get_cached_a_stock_spot(self) -> list[dict[str, Any]] | None:
+        if self._a_stock_spot_cache is None:
+            return None
+
+        cached_at, rows = self._a_stock_spot_cache
+        cache_age = time.monotonic() - cached_at
+        if cache_age > settings.akshare_a_stock_cache_ttl_seconds:
+            return None
+        return rows
 
     @staticmethod
     def _normalize_a_stock_spot(frame: pd.DataFrame) -> pd.DataFrame:
