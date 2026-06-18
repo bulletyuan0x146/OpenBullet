@@ -11,7 +11,7 @@ cp .env.example .env
 uv run openbullet
 ```
 
-The API starts on `http://localhost:5050` by default.
+The API starts on `http://127.0.0.1:5050` by default.
 
 OpenBB Workspace metadata endpoints:
 

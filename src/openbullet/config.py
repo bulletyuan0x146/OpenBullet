@@ -21,7 +21,7 @@ class Settings(BaseSettings):
 
     app_name: str = "OpenBullet"
     app_version: str = "0.1.0"
-    app_host: str = "0.0.0.0"
+    app_host: str = "127.0.0.1"
     app_port: int = 5050
     app_reload: bool = True
     cors_origins_raw: str = Field(
