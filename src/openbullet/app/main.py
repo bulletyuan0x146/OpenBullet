@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from openbullet.config import settings
-from openbullet.routers import cn_market, meta
+from openbullet.routers import cn_market, dividends, meta
 
 
 def create_app() -> FastAPI:
@@ -22,6 +22,7 @@ def create_app() -> FastAPI:
     )
     app.include_router(meta.router)
     app.include_router(cn_market.router)
+    app.include_router(dividends.router)
     return app
 
 

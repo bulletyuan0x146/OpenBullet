@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     )
     akshare_a_stock_limit: int = 100
     akshare_a_stock_cache_ttl_seconds: int = 60
+    dividend_cache_ttl_seconds: int = 86400
 
     @property
     def cors_origins(self) -> list[str]:

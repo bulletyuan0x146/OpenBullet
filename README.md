@@ -21,3 +21,5 @@ OpenBB Workspace metadata endpoints:
 Data endpoint:
 
 - `GET /cn/a_stock_spot?limit=100`
+- `GET /equity/dividends?market=cn&symbol=600519`
+- `GET /equity/dividends/chart?market=hk&symbol=00700&theme=dark`
