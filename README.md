@@ -25,3 +25,5 @@ Data endpoint:
 - `GET /equity/dividends/chart?market=hk&symbol=00700&theme=dark`
 - `GET /equity/ev_fcf?market=cn&symbol=600519`
 - `GET /equity/ev_fcf/chart?market=hk&symbol=00700&theme=dark`
+- `GET /equity/roic?market=cn&symbol=600519`
+- `GET /equity/roic/chart?market=hk&symbol=00700&theme=dark`

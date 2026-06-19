@@ -118,6 +118,32 @@ def get_apps() -> list[dict]:
                                 }
                             },
                         },
+                        {
+                            "i": "equity_roic_chart",
+                            "x": 0,
+                            "y": 12,
+                            "w": 24,
+                            "h": 12,
+                            "state": {
+                                "params": {
+                                    "market": "cn",
+                                    "symbol": "600519",
+                                }
+                            },
+                        },
+                        {
+                            "i": "equity_roic",
+                            "x": 24,
+                            "y": 12,
+                            "w": 16,
+                            "h": 12,
+                            "state": {
+                                "params": {
+                                    "market": "cn",
+                                    "symbol": "600519",
+                                }
+                            },
+                        },
                     ],
                 }
             },
