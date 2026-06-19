@@ -5,12 +5,12 @@ from datetime import timedelta
 import json
 from typing import Annotated, Literal
 
-import akshare as ak
 import pandas as pd
 import plotly.graph_objects as go
 from fastapi import APIRouter, HTTPException, Query
 
 from openbullet.providers.dividends import DividendProvider, _to_iso_date
+from openbullet.providers.prices import get_price_history
 from openbullet.widgets.registry import register_widget
 
 router = APIRouter(prefix="/equity", tags=["Equity"])
@@ -317,7 +317,7 @@ def _enrich_rows_with_prices(
 
     start_date = (parsed_dates.min().date() - timedelta(days=7)).strftime("%Y%m%d")
     end_date = (parsed_dates.max().date() + timedelta(days=7)).strftime("%Y%m%d")
-    prices = _get_price_history(
+    prices = get_price_history(
         market=market,
         symbol=symbol,
         start_date=start_date,
@@ -344,64 +344,6 @@ def _enrich_rows_with_prices(
                 enriched["event_dividend_yield"] = round(cash_dividend / close_price, 8)
         enriched_rows.append(enriched)
     return enriched_rows
-
-
-def _get_price_history(
-    *, market: str, symbol: str, start_date: str, end_date: str
-) -> pd.DataFrame:
-    if market == "cn":
-        frame = _get_cn_price_history(symbol=symbol, start_date=start_date, end_date=end_date)
-    elif market == "hk":
-        frame = _get_hk_price_history(symbol=symbol, start_date=start_date, end_date=end_date)
-    else:
-        return pd.DataFrame()
-
-    if frame.empty:
-        return pd.DataFrame()
-    return frame.rename(columns={"日期": "date", "收盘": "close"}).loc[:, ["date", "close"]]
-
-
-def _get_cn_price_history(*, symbol: str, start_date: str, end_date: str) -> pd.DataFrame:
-    try:
-        return ak.stock_zh_a_hist(
-            symbol=symbol,
-            period="daily",
-            start_date=start_date,
-            end_date=end_date,
-            adjust="",
-        )
-    except Exception:
-        return ak.stock_zh_a_daily(
-            symbol=_cn_sina_symbol(symbol),
-            start_date=start_date,
-            end_date=end_date,
-            adjust="",
-        )
-
-
-def _get_hk_price_history(*, symbol: str, start_date: str, end_date: str) -> pd.DataFrame:
-    try:
-        return ak.stock_hk_hist(
-            symbol=symbol,
-            period="daily",
-            start_date=start_date,
-            end_date=end_date,
-            adjust="",
-        )
-    except Exception:
-        frame = ak.stock_hk_daily(symbol=symbol, adjust="")
-        if frame.empty:
-            return frame
-        dates = pd.to_datetime(frame["date"], errors="coerce")
-        start = pd.to_datetime(start_date, format="%Y%m%d", errors="coerce")
-        end = pd.to_datetime(end_date, format="%Y%m%d", errors="coerce")
-        return frame.loc[(dates >= start) & (dates <= end)].copy()
-
-
-def _cn_sina_symbol(symbol: str) -> str:
-    if symbol.startswith(("6", "9")):
-        return f"sh{symbol}"
-    return f"sz{symbol}"
 
 
 def _find_price_index_on_or_before(

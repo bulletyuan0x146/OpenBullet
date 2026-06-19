@@ -87,6 +87,38 @@ def get_apps() -> list[dict]:
                             },
                         },
                     ],
+                },
+                "valuation": {
+                    "id": "valuation",
+                    "name": "Valuation",
+                    "layout": [
+                        {
+                            "i": "equity_ev_fcf_chart",
+                            "x": 0,
+                            "y": 0,
+                            "w": 24,
+                            "h": 12,
+                            "state": {
+                                "params": {
+                                    "market": "cn",
+                                    "symbol": "600519",
+                                }
+                            },
+                        },
+                        {
+                            "i": "equity_ev_fcf",
+                            "x": 24,
+                            "y": 0,
+                            "w": 16,
+                            "h": 12,
+                            "state": {
+                                "params": {
+                                    "market": "cn",
+                                    "symbol": "600519",
+                                }
+                            },
+                        },
+                    ],
                 }
             },
             "groups": [],
